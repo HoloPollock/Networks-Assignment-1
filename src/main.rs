@@ -1,20 +1,13 @@
 use async_std::{
-    io,
+    fs, io,
     net::{TcpListener, TcpStream},
     prelude::*,
-    task,
-    fs,
     sync::RwLock,
+    task,
 };
-use std::{
-    str,
-    net::Shutdown,
-    time::SystemTime,
-    sync::Arc,
-};
+use std::{net::Shutdown, str, sync::Arc, time::SystemTime};
 
 const MAXCONN: usize = 3;
-
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 struct Client {
@@ -24,9 +17,13 @@ struct Client {
 }
 
 impl Client {
-    fn new(client_num: usize) -> Client{
+    fn new(client_num: usize) -> Client {
         let name = format!("Client {}", client_num);
-        Client{name : name, timein: SystemTime::now(), timeout: None}
+        Client {
+            name: name,
+            timein: SystemTime::now(),
+            timeout: None,
+        }
     }
     fn disconnect(&mut self) {
         self.timeout = Some(SystemTime::now())
@@ -49,8 +46,7 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
             println!("connection shutdown on stream {}", stream.peer_addr()?);
             stream.shutdown(Shutdown::Both)?;
             break;
-        }
-        else if response == "ls" {
+        } else if response == "ls" {
             let mut send = String::new();
             let mut entries = fs::read_dir("./files").await?;
             while let Some(res) = entries.next().await {
@@ -65,7 +61,7 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
         }
 
         if buf.len() == 0 {
-           println!("Socket closed killing task");
+            println!("Socket closed killing task");
             break;
         }
     }
@@ -75,7 +71,7 @@ fn main() -> io::Result<()> {
     task::block_on(async {
         let mut connected: Arc<RwLock<usize>> = Arc::new(RwLock::new(0));
         let mut counter: Arc<RwLock<usize>> = Arc::new(RwLock::new(1));
-        println!("{}",*counter.read().await);
+        println!("{}", *counter.read().await);
         let mut client_list: Arc<Vec<Client>> = Arc::new(Vec::new());
         let listener = TcpListener::bind("127.0.0.1:8080").await?;
         println!("Listening on {}", listener.local_addr()?);
@@ -86,23 +82,19 @@ fn main() -> io::Result<()> {
         while let Some(stream) = incoming.next().await {
             let stream = stream?;
             dbg!(connected.read().await);
-            if *connected_whi.read().await < MAXCONN
-            {
+            if *connected_whi.read().await < MAXCONN {
                 *connected_whi.write().await += 1;
                 let new_cli = Client::new(*counter_whi.read().await);
                 // client_list.push(new_cli.clone());
                 *counter_whi.write().await += 1;
                 let connected_as = Arc::clone(&connected);
-                task::spawn(async move{
+                task::spawn(async move {
                     println!("hello");
                     process(stream, &new_cli).await.unwrap();
                     println!("done with {}", new_cli.name);
                     *connected_as.write().await -= 1;
                 });
-                
-            }
-            else 
-            {
+            } else {
                 println!("not accepting connection connection buffer full")
             }
         }
