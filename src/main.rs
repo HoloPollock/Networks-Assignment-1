@@ -5,6 +5,7 @@ use async_std::{
     sync::RwLock,
     task,
 };
+use futures::{channel::mpsc, select, FutureExt, SinkExt};
 use std::{net::Shutdown, str, sync::Arc, time::SystemTime};
 
 const MAXCONN: usize = 3;
@@ -20,7 +21,7 @@ impl Client {
     fn new(client_num: usize) -> Client {
         let name = format!("Client {}", client_num);
         Client {
-            name: name,
+            name,
             timein: SystemTime::now(),
             timeout: None,
         }
@@ -30,7 +31,7 @@ impl Client {
     }
 }
 
-async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
+async fn process(mut stream: TcpStream, _client: &Client) -> io::Result<()> {
     println!("Accepted from: {}", stream.peer_addr()?);
     stream.write_all(b"hello what do you want to do\n").await?;
     loop {
@@ -60,7 +61,7 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
             writer.write_all(&send.as_bytes()).await?;
         }
 
-        if buf.len() == 0 {
+        if buf.is_empty() {
             println!("Socket closed killing task");
             break;
         }
@@ -69,10 +70,10 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
 }
 fn main() -> io::Result<()> {
     task::block_on(async {
-        let mut connected: Arc<RwLock<usize>> = Arc::new(RwLock::new(0));
-        let mut counter: Arc<RwLock<usize>> = Arc::new(RwLock::new(1));
+        let connected: Arc<RwLock<usize>> = Arc::new(RwLock::new(0));
+        let counter: Arc<RwLock<usize>> = Arc::new(RwLock::new(1));
         println!("{}", *counter.read().await);
-        let mut client_list: Arc<Vec<Client>> = Arc::new(Vec::new());
+        let client_list: Arc<RwLock<Vec<Client>>> = Arc::new(RwLock::new(Vec::new()));
         let listener = TcpListener::bind("127.0.0.1:8080").await?;
         println!("Listening on {}", listener.local_addr()?);
 
@@ -81,9 +82,9 @@ fn main() -> io::Result<()> {
         let counter_whi = Arc::clone(&counter);
         while let Some(stream) = incoming.next().await {
             let stream = stream?;
-            dbg!(connected.read().await);
             if *connected_whi.read().await < MAXCONN {
                 *connected_whi.write().await += 1;
+                dbg!(connected.read().await);
                 let new_cli = Client::new(*counter_whi.read().await);
                 // client_list.push(new_cli.clone());
                 *counter_whi.write().await += 1;
