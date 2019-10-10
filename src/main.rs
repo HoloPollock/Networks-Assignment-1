@@ -1,6 +1,6 @@
 use async_std::{
     fs,
-    fs::File, 
+    fs::File,
     io,
     net::{TcpListener, TcpStream},
     prelude::*,
@@ -13,9 +13,7 @@ mod stringutils;
 
 use crate::stringutils::StringUtils;
 
-
 const MAXCONN: usize = 3;
-
 
 #[derive(Debug, Clone)]
 struct Client {
@@ -36,13 +34,11 @@ impl Client {
     fn disconnect(&mut self) {
         self.timeout = Some(SystemTime::now())
     }
-    fn respond(&self) -> String
-    {
+    fn respond(&self) -> String {
         let mut respond = String::from("Hello ");
         respond.push_str(&self.name);
         respond.push_str(" what is your name\n");
         return respond;
-
     }
 }
 
@@ -101,24 +97,25 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
             let string = String::from("'ls': list all files\n'exit': close connection\n'download <filename>': download file of that name\n'<any string>': get response back from server\n");
             writer.write_all(string.as_bytes()).await?;
         } else if response.starts_with("download ") {
-            let filename = response.to_string().remove_whitespace().substring("download".len(),response.len()-1);
+            let filename = response
+                .to_string()
+                .remove_whitespace()
+                .substring("download".len(), response.len() - 1);
             dbg!(&filename);
             let mut entries = fs::read_dir("./files").await?;
             while let Some(res) = entries.next().await {
                 let entry = res?;
                 dbg!(entry.file_name().to_string_lossy());
                 dbg!(entry.metadata().await?.is_file());
-                if entry.file_name().to_string_lossy() == filename{
+                if entry.file_name().to_string_lossy() == filename {
                     let buffer_size = entry.metadata().await?.len();
                     let mut file = File::open("files/".to_string() + &filename).await?;
                     let mut buf = vec![0; buffer_size as usize];
                     let n = file.read(&mut buf).await?;
                     dbg!(n);
                 } else {
-                    
                 }
             }
-            
         } else {
             let mut word = String::new();
             word.push_str(response);
@@ -167,10 +164,10 @@ fn main() -> io::Result<()> {
                     process(stream, &new_cli).await.unwrap();
                     println!("done with {}", new_cli.name);
                     *connected_as.write().await -= 1;
-                    list_as.write().await[loc-2].disconnect();
+                    list_as.write().await[loc - 2].disconnect();
                     // dbg!(&list_as);
                 });
-                // println!("hello")
+            // println!("hello")
             } else {
                 println!("not accepting connection connection buffer full")
             }
