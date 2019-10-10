@@ -38,7 +38,7 @@ impl Client {
         let mut respond = String::from("Hello ");
         respond.push_str(&self.name);
         respond.push_str(" what is your name\n");
-        return respond;
+        respond
     }
 }
 
@@ -71,7 +71,7 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
         response = response.trim();
         dbg!(buf.len());
         dbg!(response.as_bytes());
-        if first == true {
+        if first {
             let mut responding = String::from("Hello ");
             responding.push_str(response);
             responding.push_str(" what would you like to do\n");
@@ -109,10 +109,12 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
                 dbg!(entry.metadata().await?.is_file());
                 if entry.file_name().to_string_lossy() == filename {
                     let buffer_size = entry.metadata().await?.len();
+                    dbg!(buffer_size);
                     let mut file = File::open("files/".to_string() + &filename).await?;
                     let mut buf = vec![0; buffer_size as usize];
                     let n = file.read(&mut buf).await?;
                     dbg!(n);
+                    dbg!(&buf);
                 } else {
                 }
             }
