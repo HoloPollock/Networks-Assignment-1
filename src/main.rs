@@ -64,7 +64,6 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
         let mut response = str::from_utf8(&buf).unwrap();
         response = response.trim();
         dbg!(buf.len());
-        // dbg!(response.as_bytes());
         dbg!(response);
         if first {
             let mut responding = String::from("Hello ");
@@ -101,8 +100,6 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
             let mut entries = fs::read_dir("./files").await?;
             while let Some(res) = entries.next().await {
                 let entry = res?;
-                // dbg!(entry.file_name().to_string_lossy());
-                // dbg!(entry.metadata().await?.is_file());
                 if entry.file_name().to_string_lossy() == filename {
                     let buffer_size = entry.metadata().await?.len();
                     dbg!(buffer_size);
@@ -112,8 +109,6 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
                     dbg!(n);
                     dbg!(&buffer_size.to_be_bytes());
                     dbg!(buf.len());
-                    // let temp = buffer_size.to_be_bytes();
-                    // dbg!(usize::from_be_bytes(temp));
                     writer.write_all(&buffer_size.to_be_bytes()).await?;
                     writer.write_all(b"\n").await?;
                     dbg!(&buf);
@@ -165,15 +160,13 @@ fn main() -> io::Result<()> {
                 let counter_as = Arc::clone(&counter);
                 task::spawn(async move {
                     let loc = *counter_as.read().await;
-                    // dbg!(&loc);
                     println!("hello");
                     process(stream, &new_cli).await.unwrap();
                     println!("done with {}", new_cli.name);
                     *connected_as.write().await -= 1;
                     list_as.write().await[loc - 2].disconnect();
-                    // dbg!(&list_as);
+                    dbg!(&list_as);
                 });
-            // println!("hello")
             } else {
                 println!("not accepting connection connection buffer full")
             }
