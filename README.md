@@ -2,4 +2,4 @@
 This is the server for the assignment
 
 
-The client is here https://github.com/HoloPollock/network_assignment_1_client
+The Client is here https://github.com/HoloPollock/network_assignment_1_client
