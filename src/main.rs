@@ -51,18 +51,12 @@ impl StringUtils for String {
     }
 }
 
-// #[derive(Debug)]
-// enum Event {
-//     Disconnect {
-//         client: Client
-//     }
-// }
-
 async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
     println!("Accepted from: {}", stream.peer_addr()?);
     stream.write_all(client.respond().as_bytes()).await?;
     let mut first = true;
     loop {
+        dbg!("go");
         let mut buf = vec![0u8; 1024];
         let (reader, writer) = &mut (&stream, &stream);
         reader.read(&mut buf).await?;
@@ -70,7 +64,8 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
         let mut response = str::from_utf8(&buf).unwrap();
         response = response.trim();
         dbg!(buf.len());
-        dbg!(response.as_bytes());
+        // dbg!(response.as_bytes());
+        dbg!(response);
         if first {
             let mut responding = String::from("Hello ");
             responding.push_str(response);
@@ -97,6 +92,7 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
             let string = String::from("'ls': list all files\n'exit': close connection\n'download <filename>': download file of that name\n'<any string>': get response back from server\n");
             writer.write_all(string.as_bytes()).await?;
         } else if response.starts_with("download ") {
+            dbg!("downloading");
             let filename = response
                 .to_string()
                 .remove_whitespace()
@@ -105,8 +101,8 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
             let mut entries = fs::read_dir("./files").await?;
             while let Some(res) = entries.next().await {
                 let entry = res?;
-                dbg!(entry.file_name().to_string_lossy());
-                dbg!(entry.metadata().await?.is_file());
+                // dbg!(entry.file_name().to_string_lossy());
+                // dbg!(entry.metadata().await?.is_file());
                 if entry.file_name().to_string_lossy() == filename {
                     let buffer_size = entry.metadata().await?.len();
                     dbg!(buffer_size);
@@ -114,7 +110,15 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
                     let mut buf = vec![0; buffer_size as usize];
                     let n = file.read(&mut buf).await?;
                     dbg!(n);
+                    dbg!(&buffer_size.to_be_bytes());
+                    dbg!(buf.len());
+                    // let temp = buffer_size.to_be_bytes();
+                    // dbg!(usize::from_be_bytes(temp));
+                    writer.write_all(&buffer_size.to_be_bytes()).await?;
+                    writer.write_all(b"\n").await?;
                     dbg!(&buf);
+                    writer.write_all(&buf).await?;
+                    writer.write_all(b"download done").await?;
                 } else {
                 }
             }
