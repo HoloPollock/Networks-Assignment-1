@@ -56,15 +56,15 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
     stream.write_all(client.respond().as_bytes()).await?;
     let mut first = true;
     loop {
-        dbg!("go");
+        // dbg!("go");
         let mut buf = vec![0u8; 1024];
         let (reader, writer) = &mut (&stream, &stream);
         reader.read(&mut buf).await?;
         buf.retain(|&i| i != 0);
         let mut response = str::from_utf8(&buf).unwrap();
         response = response.trim();
-        dbg!(buf.len());
-        dbg!(response);
+        // dbg!(buf.len());
+        // dbg!(response);
         if first {
             let mut responding = String::from("Hello ");
             responding.push_str(response);
@@ -91,27 +91,27 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
             let string = String::from("'ls': list all files\n'exit': close connection\n'download <filename>': download file of that name\n'<any string>': get response back from server\n");
             writer.write_all(string.as_bytes()).await?;
         } else if response.starts_with("download ") {
-            dbg!("downloading");
+            // dbg!("downloading");
             let filename = response
                 .to_string()
                 .remove_whitespace()
                 .substring("download".len(), response.len() - 1);
-            dbg!(&filename);
+            // dbg!(&filename);
             let mut entries = fs::read_dir("./files").await?;
             while let Some(res) = entries.next().await {
                 let entry = res?;
                 if entry.file_name().to_string_lossy() == filename {
                     let buffer_size = entry.metadata().await?.len();
-                    dbg!(buffer_size);
+                    // dbg!(buffer_size);
                     let mut file = File::open("files/".to_string() + &filename).await?;
                     let mut buf = vec![0; buffer_size as usize];
-                    let n = file.read(&mut buf).await?;
-                    dbg!(n);
-                    dbg!(&buffer_size.to_be_bytes());
-                    dbg!(buf.len());
+                    let _n = file.read(&mut buf).await?;
+                    // dbg!(n);
+                    // dbg!(&buffer_size.to_be_bytes());
+                    // dbg!(buf.len());
                     writer.write_all(&buffer_size.to_be_bytes()).await?;
                     writer.write_all(b"\n").await?;
-                    dbg!(&buf);
+                    // dbg!(&buf);
                     writer.write_all(&buf).await?;
                     writer.write_all(b"download done").await?;
                 } else {
