@@ -14,6 +14,7 @@ mod stringutils;
 use crate::stringutils::StringUtils;
 
 const MAXCONN: usize = 3;
+const NOFILE: i64 = -1;
 
 #[derive(Debug, Clone)]
 struct Client {
@@ -99,28 +100,43 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
                 .substring("download".len(), response.len() - 1);
             // dbg!(&filename);
             let mut entries = fs::read_dir("./files").await?;
+            let mut file: Option<fs::DirEntry> = None;
             while let Some(res) = entries.next().await {
                 let entry = res?;
                 if entry.file_name().to_string_lossy() == filename {
-                    let buffer_size = entry.metadata().await?.len();
-                    dbg!(buffer_size);
-                    let mut file = File::open("files/".to_string() + &filename).await?;
-                    let mut buf = vec![0; buffer_size as usize];
-                    let n = file.read(&mut buf).await?;
-                    // dbg!(n);
-                    // dbg!(&buffer_size.to_be_bytes());
-                    // dbg!(buf.len());
-                    writer.write_all(&buffer_size.to_be_bytes()).await?;
-                    writer.write_all(b"\n").await?;
-                    // add a wait for read of got
-                    let mut buftemp = vec![0u8; 256];
-                    reader.read(&mut buftemp).await?;
-                    // dbg!(buftemp);
-                    // dbg!(&buf);
-                    writer.write_all(&buf).await?;
-                    writer.write_all(b"download done").await?;
-                } else {
+                    file = Some(entry);
                 }
+            }
+            if let Some(file) = file {
+                let buffer_size = file.metadata().await?.len() as i64;
+                // dbg!(buffer_size);
+                let mut file_open = File::open("files/".to_string() + &filename).await?;
+                let mut buf = vec![0; buffer_size as usize];
+                let n = file_open.read(&mut buf).await?;
+                // dbg!(n);
+                // dbg!(&buffer_size.to_be_bytes());
+                // dbg!(buf.len());
+                writer.write_all(&buffer_size.to_be_bytes()).await?;
+                writer.write_all(b"\n").await?;
+                // add a wait for read of got
+                let mut buftemp = vec![0u8; 256];
+                reader.read(&mut buftemp).await?; 
+                // dbg!(buftemp);
+                // dbg!(&buf);
+                writer.write_all(&buf).await?;
+                // dbg!("hello");
+                writer.write_all(b"download done\n").await?;
+            } else {
+                // dbg!("woot");
+                writer.write_all(&NOFILE.to_be_bytes()).await?;
+                writer.write_all(b"\n").await?;
+                // dbg!("error");
+                let mut buftemp = vec![0u8; 256];
+                reader.read(&mut buftemp).await?;
+                // dbg!(buftemp);
+                // dbg!("hello");
+                writer.write_all(b"No File Found\n").await?;
+                
             }
         } else {
             let mut word = String::new();
@@ -170,7 +186,7 @@ fn main() -> io::Result<()> {
                     println!("done with {}", new_cli.name);
                     *connected_as.write().await -= 1;
                     list_as.write().await[loc - 2].disconnect();
-                    dbg!(&list_as);
+                    // dbg!(&list_as);
                 });
             } else {
                 println!("not accepting connection connection buffer full")
