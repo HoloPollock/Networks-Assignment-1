@@ -56,6 +56,7 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
     stream.write_all(client.respond().as_bytes()).await?;
     let mut first = true;
     loop {
+        // dbg!(&client);
         // dbg!("go");
         let mut buf = vec![0u8; 1024];
         let (reader, writer) = &mut (&stream, &stream);
@@ -102,15 +103,19 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
                 let entry = res?;
                 if entry.file_name().to_string_lossy() == filename {
                     let buffer_size = entry.metadata().await?.len();
-                    // dbg!(buffer_size);
+                    dbg!(buffer_size);
                     let mut file = File::open("files/".to_string() + &filename).await?;
                     let mut buf = vec![0; buffer_size as usize];
-                    let _n = file.read(&mut buf).await?;
+                    let n = file.read(&mut buf).await?;
                     // dbg!(n);
                     // dbg!(&buffer_size.to_be_bytes());
                     // dbg!(buf.len());
                     writer.write_all(&buffer_size.to_be_bytes()).await?;
                     writer.write_all(b"\n").await?;
+                    // add a wait for read of got
+                    let mut buftemp = vec![0u8; 256];
+                    reader.read(&mut buftemp).await?;
+                    // dbg!(buftemp);
                     // dbg!(&buf);
                     writer.write_all(&buf).await?;
                     writer.write_all(b"download done").await?;
