@@ -112,7 +112,7 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
                 // dbg!(buffer_size);
                 let mut file_open = File::open("files/".to_string() + &filename).await?;
                 let mut buf = vec![0; buffer_size as usize];
-                let n = file_open.read(&mut buf).await?;
+                let _n = file_open.read(&mut buf).await?;
                 // dbg!(n);
                 // dbg!(&buffer_size.to_be_bytes());
                 // dbg!(buf.len());
@@ -120,7 +120,7 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
                 writer.write_all(b"\n").await?;
                 // add a wait for read of got
                 let mut buftemp = vec![0u8; 256];
-                reader.read(&mut buftemp).await?; 
+                reader.read(&mut buftemp).await?;
                 // dbg!(buftemp);
                 // dbg!(&buf);
                 writer.write_all(&buf).await?;
@@ -136,7 +136,6 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
                 // dbg!(buftemp);
                 // dbg!("hello");
                 writer.write_all(b"No File Found\n").await?;
-                
             }
         } else {
             let mut word = String::new();
