@@ -1,6 +1,7 @@
 use async_std::{
     fs,
     fs::File,
+    fs::DirEntry,
     io,
     net::{TcpListener, TcpStream},
     prelude::*,
@@ -100,7 +101,7 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
                 .substring("download".len(), response.len() - 1);
             // dbg!(&filename);
             let mut entries = fs::read_dir("./files").await?;
-            let mut file: Option<fs::DirEntry> = None;
+            let mut file: Option<DirEntry> = None;
             while let Some(res) = entries.next().await {
                 let entry = res?;
                 if entry.file_name().to_string_lossy() == filename {
