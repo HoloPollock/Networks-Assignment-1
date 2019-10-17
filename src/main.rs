@@ -146,16 +146,18 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
                 //wait for ack
                 let mut buftemp = vec![0u8; 256];
                 reader.read(&mut buftemp).await?;
-                //sned final response
+                //send final response
                 writer.write_all(b"No File Found\n").await?;
             }
+        //if any work
         } else {
+            // takt the word and send it with ack attached
             let mut word = String::new();
             word.push_str(response);
             word.push_str("ack\n");
             writer.write_all(word.as_bytes()).await?;
         }
-
+        //if you get an empty read the socket has been killed on the client end so close the task
         if buf.is_empty() {
             println!("Socket closed killing task");
             break;
@@ -167,37 +169,44 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
 //I know this is stupid and bad but it works enough for the assignment (I should be using channels to communicate not just alot of Arc to clone things)
 fn main() -> io::Result<()> {
     task::block_on(async {
+        //create new couter for number of connected clients(in arc so can be moved in to new context and not free when context ends)
         let connected: Arc<RwLock<usize>> = Arc::new(RwLock::new(0));
+        //create counter for number of client ever connected(in arc so can be moved in to new context and not free when context ends)
         let counter: Arc<RwLock<usize>> = Arc::new(RwLock::new(1));
         println!("{}", *counter.read().await);
+        //cahche of all clients
         let client_list: Arc<RwLock<Vec<Client>>> = Arc::new(RwLock::new(Vec::new()));
+        //bind to port 8080
         let listener = TcpListener::bind("127.0.0.1:8080").await?;
         println!("Listening on {}", listener.local_addr()?);
-
+        //look for new incoming request 
         let mut incoming = listener.incoming();
+        //clone references to move in to while loop context
         let connected_whi = Arc::clone(&connected);
         let counter_whi = Arc::clone(&counter);
         let list_whi = Arc::clone(&client_list);
-        while let Some(stream) = incoming.next().await {
-            let stream = stream?;
-            if *connected_whi.read().await < MAXCONN {
+        while let Some(stream) = incoming.next().await {  //if that incoming eixst 
+            let stream = stream?; //unwrap stream 
+            if *connected_whi.read().await < MAXCONN { //process only if there are enought connection to process
                 *connected_whi.write().await += 1;
                 // dbg!(connected.read().await);
+                //create new client
                 let new_cli = Client::new(*counter_whi.read().await);
+                // add client to client list
                 list_whi.write().await.push(new_cli.clone());
                 *counter_whi.write().await += 1;
                 let connected_as = Arc::clone(&connected);
-                // dbg!(&client_list);
+                // dbg!(&client_list); //remove this client to see that client list is updated when clients connects
                 let list_as = Arc::clone(&client_list);
                 let counter_as = Arc::clone(&counter);
-                task::spawn(async move {
+                task::spawn(async move { // spawn new process this allows many client to connect and exist at once
                     let loc = *counter_as.read().await;
                     println!("hello");
                     process(stream, &new_cli).await.unwrap();
                     println!("done with {}", new_cli.name);
                     *connected_as.write().await -= 1;
                     list_as.write().await[loc - 2].disconnect();
-                    // dbg!(&list_as);
+                    // dbg!(&list_as); //remove this client to see that client list is updated when clients dissconnects 
                 });
             } else {
                 println!("not accepting connection connection buffer full")
