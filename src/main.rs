@@ -1,7 +1,7 @@
 use async_std::{
     fs,
-    fs::File,
     fs::DirEntry,
+    fs::File,
     io,
     net::{TcpListener, TcpStream},
     prelude::*,
@@ -91,7 +91,7 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
             let mut send = String::new();
             //this line assume the code is run from / and not /src
             let mut entries = fs::read_dir("./files").await?;
-            //lol for loops don't exist in async yet so this is just a for over an iterator 
+            //lol for loops don't exist in async yet so this is just a for over an iterator
             while let Some(res) = entries.next().await {
                 let entry = res?;
                 // if file exists get it a a string slice and push it to a string slice
@@ -136,7 +136,7 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
                 // wait for client to Acknowledge that it has recived the size before sending the file
                 let mut buftemp = vec![0u8; 256];
                 reader.read(&mut buftemp).await?;
-                
+
                 writer.write_all(&buf).await?;
                 writer.write_all(b"download done\n").await?;
             } else {
@@ -179,15 +179,17 @@ fn main() -> io::Result<()> {
         //bind to port 8080
         let listener = TcpListener::bind("127.0.0.1:8080").await?;
         println!("Listening on {}", listener.local_addr()?);
-        //look for new incoming request 
+        //look for new incoming request
         let mut incoming = listener.incoming();
         //clone references to move in to while loop context
         let connected_whi = Arc::clone(&connected);
         let counter_whi = Arc::clone(&counter);
         let list_whi = Arc::clone(&client_list);
-        while let Some(stream) = incoming.next().await {  //if that incoming eixst 
-            let stream = stream?; //unwrap stream 
-            if *connected_whi.read().await < MAXCONN { //process only if there are enought connection to process
+        while let Some(stream) = incoming.next().await {
+            //if that incoming eixst
+            let stream = stream?; //unwrap stream
+            if *connected_whi.read().await < MAXCONN {
+                //process only if there are enought connection to process
                 *connected_whi.write().await += 1;
                 // dbg!(connected.read().await);
                 //create new client
@@ -199,14 +201,15 @@ fn main() -> io::Result<()> {
                 // dbg!(&client_list); //remove this client to see that client list is updated when clients connects
                 let list_as = Arc::clone(&client_list);
                 let counter_as = Arc::clone(&counter);
-                task::spawn(async move { // spawn new process this allows many client to connect and exist at once
+                task::spawn(async move {
+                    // spawn new process this allows many client to connect and exist at once
                     let loc = *counter_as.read().await;
                     println!("hello");
                     process(stream, &new_cli).await.unwrap();
                     println!("done with {}", new_cli.name);
                     *connected_as.write().await -= 1;
                     list_as.write().await[loc - 2].disconnect();
-                    // dbg!(&list_as); //remove this client to see that client list is updated when clients dissconnects 
+                    // dbg!(&list_as); //remove this client to see that client list is updated when clients dissconnects
                 });
             } else {
                 println!("not accepting connection connection buffer full")
