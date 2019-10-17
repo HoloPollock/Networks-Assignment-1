@@ -14,9 +14,12 @@ mod stringutils;
 
 use crate::stringutils::StringUtils;
 
+// Nunber of connection allowed
 const MAXCONN: usize = 3;
+// Number sent when there is no file found
 const NOFILE: i64 = -1;
 
+//Defines What is stored in each Client
 #[derive(Debug, Clone)]
 struct Client {
     name: String,
@@ -44,6 +47,7 @@ impl Client {
     }
 }
 
+//allows for some non built in functions with Strings
 impl StringUtils for String {
     fn substring(&self, start: usize, len: usize) -> Self {
         self.chars().skip(start).take(len).collect()
@@ -53,89 +57,93 @@ impl StringUtils for String {
     }
 }
 
+// Main Function called to process a connection
 async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
     println!("Accepted from: {}", stream.peer_addr()?);
     stream.write_all(client.respond().as_bytes()).await?;
     let mut first = true;
     loop {
-        // dbg!(&client);
-        // dbg!("go");
+        // Create a buffer to read in connection
         let mut buf = vec![0u8; 1024];
+        //split stream in to a reader and a writer for better style and code readabilty
         let (reader, writer) = &mut (&stream, &stream);
+        //read in response from client
         reader.read(&mut buf).await?;
+        //remove all empty space in buffer
         buf.retain(|&i| i != 0);
+        //convert to string slice
         let mut response = str::from_utf8(&buf).unwrap();
         response = response.trim();
-        // dbg!(buf.len());
-        // dbg!(response);
+        // first reponse has different logic than other reponse this handles the reciving of the same
         if first {
             let mut responding = String::from("Hello ");
             responding.push_str(response);
             responding.push_str(" what would you like to do\n");
             writer.write_all(responding.as_bytes()).await?;
             first = false;
+        //Hanles closing connection
         } else if response == "exit" {
             println!("connection shutdown on stream {}", stream.peer_addr()?);
             stream.shutdown(Shutdown::Both)?;
             break;
+        // lists all files that can be downloaded
         } else if response == "ls" {
             let mut send = String::new();
+            //this line assume the code is run from / and not /src
             let mut entries = fs::read_dir("./files").await?;
+            //lol for loops don't exist in async yet so this is just a for over an iterator 
             while let Some(res) = entries.next().await {
                 let entry = res?;
+                // if file exists get it a a string slice and push it to a string slice
                 match entry.file_name().as_os_str().to_str() {
                     None => (),
                     Some(e) => send.push_str(e),
                 }
                 send.push_str("\n");
             }
+            // sent to client
             writer.write_all(send.as_bytes()).await?;
+        //just send options server can handle to client
         } else if response == "options" {
             let string = String::from("'ls': list all files\n'exit': close connection\n'download <filename>': download file of that name\n'<any string>': get response back from server\n");
             writer.write_all(string.as_bytes()).await?;
+        // manages downloading a file
         } else if response.starts_with("download ") {
-            // dbg!("downloading");
             let filename = response
                 .to_string()
                 .remove_whitespace()
                 .substring("download".len(), response.len() - 1);
-            // dbg!(&filename);
             let mut entries = fs::read_dir("./files").await?;
             let mut file: Option<DirEntry> = None;
+            // Go through all files and see if there is one named the same
             while let Some(res) = entries.next().await {
                 let entry = res?;
                 if entry.file_name().to_string_lossy() == filename {
                     file = Some(entry);
                 }
             }
+            //if that file exists send the size then send the file
             if let Some(file) = file {
+                // get the size of the file
                 let buffer_size = file.metadata().await?.len() as i64;
-                // dbg!(buffer_size);
                 let mut file_open = File::open("files/".to_string() + &filename).await?;
+                // read file in to buffer
                 let mut buf = vec![0; buffer_size as usize];
                 let _n = file_open.read(&mut buf).await?;
-                // dbg!(n);
-                // dbg!(&buffer_size.to_be_bytes());
-                // dbg!(buf.len());
+                //send the file size over TCP
                 writer.write_all(&buffer_size.to_be_bytes()).await?;
                 writer.write_all(b"\n").await?;
-                // add a wait for read of got
-                let mut buftemp = vec![0u8; 256];
-                reader.read(&mut buftemp).await?;
-                // dbg!(buftemp);
-                // dbg!(&buf);
+                // wait for client to Acknowledge that it has recived the size before sending the file
+                // let mut buftemp = 
+                reader.read(vec![0u8; 256]).await?;
+                
                 writer.write_all(&buf).await?;
-                // dbg!("hello");
                 writer.write_all(b"download done\n").await?;
             } else {
-                // dbg!("woot");
                 writer.write_all(&NOFILE.to_be_bytes()).await?;
                 writer.write_all(b"\n").await?;
-                // dbg!("error");
                 let mut buftemp = vec![0u8; 256];
                 reader.read(&mut buftemp).await?;
-                // dbg!(buftemp);
-                // dbg!("hello");
                 writer.write_all(b"No File Found\n").await?;
             }
         } else {
