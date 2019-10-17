@@ -4,6 +4,7 @@ This is the server for the assignment
 
 The Client is here https://github.com/HoloPollock/network_assignment_1_client
 ## Run
+You need C and C++ installed to run
 How to run all these assume a Unix like experience
 1. **Install Rust**  
 Use [rustup](https://rustup.rs) to install rust
