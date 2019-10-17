@@ -134,16 +134,19 @@ async fn process(mut stream: TcpStream, client: &Client) -> io::Result<()> {
                 writer.write_all(&buffer_size.to_be_bytes()).await?;
                 writer.write_all(b"\n").await?;
                 // wait for client to Acknowledge that it has recived the size before sending the file
-                // let mut buftemp = 
-                reader.read(vec![0u8; 256]).await?;
+                let mut buftemp = vec![0u8; 256];
+                reader.read(&mut buftemp).await?;
                 
                 writer.write_all(&buf).await?;
                 writer.write_all(b"download done\n").await?;
             } else {
+                //send no file
                 writer.write_all(&NOFILE.to_be_bytes()).await?;
                 writer.write_all(b"\n").await?;
+                //wait for ack
                 let mut buftemp = vec![0u8; 256];
                 reader.read(&mut buftemp).await?;
+                //sned final response
                 writer.write_all(b"No File Found\n").await?;
             }
         } else {
